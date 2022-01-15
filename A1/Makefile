@@ -1,6 +1,6 @@
-CC=g++
+CC=g++ -fopenmp
 #g++ -std=c++11 -O2 -mavx2 -c classify.cpp 
-CFLAGS=-std=c++11 -O2 -fopenmp
+CFLAGS=-std=c++11 -O2
 
 sources=main.cpp classify.cpp
 objects=$(sources:.cpp=.o)
@@ -9,7 +9,7 @@ classify:$(objects)
 	$(CC) $(CFLAGS) -fopenmp $^ -o $@
 
 run: classify
-	./classify rfile dfile 1009072 4 6
+	./classify rfile dfile 1009072 4 3
 
 #classify.o: classify.h
 #	touch classify.o
