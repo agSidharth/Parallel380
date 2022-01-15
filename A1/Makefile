@@ -1,6 +1,6 @@
 CC=g++
 #g++ -std=c++11 -O2 -mavx2 -c classify.cpp 
-CFLAGS=-std=c++11 -O2
+CFLAGS=-std=c++11 -O2 -fopenmp
 
 sources=main.cpp classify.cpp
 objects=$(sources:.cpp=.o)
