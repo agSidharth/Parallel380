@@ -153,7 +153,7 @@ void ParallelSort(uint32_t *data, uint32_t n, int p)
         finaloffset[pointers[i]]++;  
     }
 
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for(uint32_t i=0;i<n;i++) data[i] = newData[i];
 
     for(int i=0;i<p;i++)
