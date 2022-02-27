@@ -5,45 +5,6 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-/*
-//Notice how the randomizer is being used in this dummy function
-void print_random(int tid, int num_nodes, Randomizer r){
-    int this_id = tid;
-    int num_steps = 10;
-    int num_child = 20;
-
-    std::string s = "Thread " + std::to_string(this_id) + "\n";
-    std::cout << s;
-
-    for(int i=0;i<num_nodes;i++){
-        //Processing one node
-        for(int j=0; j<num_steps; j++){
-            if(num_child > 0){
-                //Called only once in each step of random walk using the original node id 
-                //for which we are calculating the recommendations
-                int next_step = r.get_random_value(i);
-                //Random number indicates restart
-                if(next_step<0){
-                    std::cout << "Restart \n";
-                }else{
-                    //Deciding next step based on the output of randomizer which was already called
-                    int child = next_step % 20; //20 is the number of child of the current node
-                    std::string s = "Thread " + std::to_string(this_id) + " rand " + std::to_string(child) + "\n";
-                    std::cout << s;
-                }
-            }else{
-                std::cout << "Restart \n";
-            }
-        }
-    }
-}
-*/
-
-uint32_t convertInt(uint32_t num)
-{
-    return (((num>>24)&0xff) | ((num<<8)&0xff0000) | ((num>>8)&0xff00) | ((num<<24)&0xff000000));
-}
-
 void constructGraph(vector<vector<uint32_t>>& graph,uint32_t num_nodes,string& graph_file)
 {
     ifstream fin(graph_file,ios::in | ios::binary);
@@ -53,12 +14,38 @@ void constructGraph(vector<vector<uint32_t>>& graph,uint32_t num_nodes,string& g
     {
         fin.read((char*)&node1,sizeof(node1));
         fin.read((char*)&node2,sizeof(node2));
-        graph[convertInt(node1)].push_back(convertInt(node2));
+        graph[__builtin_bswap32(node1)].push_back(__builtin_bswap32(node2));
     }
     
     fin.close();   
 }
 
+
+void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector<uint32_t>>& graph,uint32_t num_rec)
+{
+    ofstream file("output.dat",ios::out | ios::binary);
+
+    for(uint32_t i=0;i<recommend.size();i++)
+    {
+        uint32_t temp = __builtin_bswap32(i);
+        file.write((char *)&temp,sizeof(temp));
+
+        for(uint32_t j=0;j<recommend[i].size();j++)
+        {
+            temp = __builtin_bswap32(recommend[i][j].first);
+            file.write((char *)&temp,sizeof(temp));
+
+            temp = __builtin_bswap32(recommend[i][j].second);
+            file.write((char *)&temp,sizeof(temp));
+        }
+        if(recommend[i].size()<num_rec)
+        {
+            file.write((char *)&("NULL"),sizeof("NULL")); 
+            // REMEMBER:: is null also stored in bigendian
+        }
+    }
+    file.close();
+}
 
 void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector<uint32_t>>& graph,uint32_t num_nodes,uint32_t num_walks,uint32_t num_steps,uint32_t num_rec,uint32_t rank,uint32_t size,Randomizer r)
 {
@@ -151,6 +138,8 @@ int main(int argc, char* argv[]){
     size = size_temp;
 
     fillRecommendations(recommend,graph,num_nodes,num_walks,num_steps,num_rec,rank,size,random_generator);
+
+    fillOutput(recommend,graph,num_rec);
     //print_random(rank, num_nodes, random_generator);
     
     MPI_Finalize();
