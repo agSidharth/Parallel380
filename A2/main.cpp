@@ -49,15 +49,18 @@ void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector
 
 void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector<uint32_t>>& graph,uint32_t num_nodes,uint32_t num_walks,uint32_t num_steps,uint32_t num_rec,uint32_t rank,uint32_t size,Randomizer r)
 {
+    int val1 = 0;
     for(uint32_t i=0;i<num_nodes;i++)
     {
+        if(i%size!=rank) continue;
+
         unordered_set<uint32_t> firstN;
         firstN.insert(i);
 
         unordered_map<uint32_t,uint32_t> scores;
         scores[i] = 0;
 
-        for(uint32_t j=0;j<graph[i].size();i++)
+        for(uint32_t j=0;j<graph[i].size();j++)
         {
             uint32_t start = graph[i][j];
             firstN.insert(start);
@@ -78,7 +81,7 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
                 scores[curr]++;
             }
         }
-
+        
         priority_queue<pair<uint32_t,uint32_t>> pq;
         for(auto it = scores.begin();it!=scores.end();it++)
         {
@@ -87,7 +90,7 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
             
             pq.push({thisScore,node});
         }
-
+        
         while(pq.size()>0)
         {
             pair<uint32_t,uint32_t> tempP = pq.top();
@@ -100,9 +103,48 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
             }
             if(recommend[i].size()==num_rec) break;
         }
-        
+    
         firstN.clear();
         scores.clear();
+
+        if(recommend[i].size()>0)val1++;
+    }
+    cout<<rank<<":"<<val1<<endl;
+
+    int this_size;
+    if(rank!=0)
+    {   
+        for(uint32_t i=rank;i<num_nodes;i=i+size)
+        {
+            this_size = recommend[i].size()*2;
+            MPI_Send(&this_size,1,MPI_INT,0,(int)i,MPI_COMM_WORLD);
+
+            if(this_size!=0) MPI_Send(&recommend[i][0].first,this_size,MPI_INT,0,(int)i,MPI_COMM_WORLD);            
+        }
+    }
+    else
+    {
+        int val2 = 0;
+        for(uint32_t i=0;i<num_nodes;i++)
+        {
+            if(recommend[i].size()>0) val2++;
+            if(i%size==0) continue;
+            this_size = 0;
+
+            MPI_Recv(&this_size,1,MPI_INT,i%size,(int)i,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+            if(this_size>0)
+            {
+                val2++;
+                recommend[i].resize(this_size/2);
+                MPI_Recv(&recommend[i][0].first,this_size,MPI_INT,i%size,(int)i,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+                //cout<<this_size<<"--> ";
+                //for(uint32_t q=0;q<this_size/2;q++) cout<<recommend[i][q].first<<":"<<recommend[i][q].second<<" ";
+                //cout<<endl;
+            }
+        }
+        cout<<val2<<endl;
     }
 }
 
@@ -139,7 +181,7 @@ int main(int argc, char* argv[]){
 
     fillRecommendations(recommend,graph,num_nodes,num_walks,num_steps,num_rec,rank,size,random_generator);
 
-    fillOutput(recommend,graph,num_rec);
+    if(rank==0) fillOutput(recommend,graph,num_rec);
     //print_random(rank, num_nodes, random_generator);
     
     MPI_Finalize();
