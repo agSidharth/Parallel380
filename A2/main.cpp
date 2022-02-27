@@ -27,7 +27,7 @@ void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector
 
     for(uint32_t i=0;i<recommend.size();i++)
     {
-        uint32_t temp = __builtin_bswap32(i);
+        uint32_t temp = __builtin_bswap32(graph[i].size());
         file.write((char *)&temp,sizeof(temp));
 
         for(uint32_t j=0;j<recommend[i].size();j++)
