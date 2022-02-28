@@ -5,6 +5,15 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+struct myComp
+{
+    constexpr bool operator()(pair<uint32_t, uint32_t> const& a,pair<uint32_t, uint32_t> const& b) const noexcept
+    {
+        if(a.first>b.first || (a.first==b.first && a.second<b.second)) return false;
+        return true;
+    }
+};
+
 void constructGraph(vector<vector<uint32_t>>& graph,uint32_t num_nodes,string& graph_file)
 {
     ifstream fin(graph_file,ios::in | ios::binary);
@@ -81,7 +90,7 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
             }
         }
         
-        priority_queue<pair<uint32_t,uint32_t>> pq;
+        priority_queue<pair<uint32_t,uint32_t>,vector<pair<uint32_t,uint32_t>>,myComp> pq;
         for(auto it = scores.begin();it!=scores.end();it++)
         {
             uint32_t node = (*it).first;
@@ -139,9 +148,9 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
                 recommend[i].resize(this_size/2);
                 MPI_Recv(&recommend[i][0].first,this_size,MPI_INT,i%size,(int)i,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
-                //cout<<this_size<<"--> ";
-                //for(uint32_t q=0;q<this_size/2;q++) cout<<recommend[i][q].first<<":"<<recommend[i][q].second<<" ";
-                //cout<<endl;
+                cout<<this_size<<"--> ";
+                for(uint32_t q=0;q<this_size/2;q++) cout<<recommend[i][q].first<<":"<<recommend[i][q].second<<" ";
+                cout<<endl;
             }
         }
         cout<<val2<<endl;
