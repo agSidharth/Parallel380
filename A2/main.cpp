@@ -41,7 +41,6 @@ void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector
         if(recommend[i].size()<num_rec)
         {
             file.write((char *)&("NULL"),sizeof("NULL")); 
-            // REMEMBER:: is null also stored in bigendian
         }
     }
     file.close();
@@ -109,9 +108,10 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
 
         if(recommend[i].size()>0)val1++;
     }
-    cout<<rank<<":"<<val1<<endl;
 
-    uint32_t this_size;
+    uint32_t this_size = 0;
+    if(this_size==0)  cout<<rank<<":"<<val1<<endl;
+    
     if(rank!=0)
     {   
         for(uint32_t i=rank;i<num_nodes;i=i+size)
@@ -139,9 +139,9 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
                 recommend[i].resize(this_size/2);
                 MPI_Recv(&recommend[i][0].first,this_size,MPI_INT,i%size,(int)i,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
-                cout<<this_size<<"--> ";
-                for(uint32_t q=0;q<this_size/2;q++) cout<<recommend[i][q].first<<":"<<recommend[i][q].second<<" ";
-                cout<<endl;
+                //cout<<this_size<<"--> ";
+                //for(uint32_t q=0;q<this_size/2;q++) cout<<recommend[i][q].first<<":"<<recommend[i][q].second<<" ";
+                //cout<<endl;
             }
         }
         cout<<val2<<endl;
@@ -169,6 +169,8 @@ void broadCastInput(vector<vector<uint32_t>>& graph,uint32_t num_nodes,uint32_t 
 }
 
 int main(int argc, char* argv[]){
+
+    auto start = chrono::high_resolution_clock::now();
 
     assert(argc > 8);
     string graph_file = argv[1];
@@ -198,13 +200,26 @@ int main(int argc, char* argv[]){
     rank = rank_temp;
     size = size_temp;
 
-    if(rank==0) constructGraph(graph,num_nodes,graph_file);
+    cout<<rank<<": Started\n";
+    
+    if(rank==0) {constructGraph(graph,num_nodes,graph_file); cout<<rank<<": Graph constructed\n";}
+
     broadCastInput(graph,num_nodes,rank);
 
+    if(size>0)cout<<rank<<": Graph brodcasted\n";
+    
     fillRecommendations(recommend,graph,num_nodes,num_walks,num_steps,num_rec,rank,size,random_generator);
 
+    cout<<rank<<": Recommendations constructed\n";
+
     if(rank==0) fillOutput(recommend,graph,num_rec);
-    //print_random(rank, num_nodes, random_generator);
+
+    if(rank==0) cout<<"Output filled\n";
     
     MPI_Finalize();
+
+    auto stop = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
+ 
+    if(rank==0) cout << "Time taken "<< duration.count() << " milliseconds" << endl;
 }
