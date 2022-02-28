@@ -111,7 +111,7 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
     }
     cout<<rank<<":"<<val1<<endl;
 
-    int this_size;
+    uint32_t this_size;
     if(rank!=0)
     {   
         for(uint32_t i=rank;i<num_nodes;i=i+size)
@@ -139,12 +139,32 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
                 recommend[i].resize(this_size/2);
                 MPI_Recv(&recommend[i][0].first,this_size,MPI_INT,i%size,(int)i,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
-                //cout<<this_size<<"--> ";
-                //for(uint32_t q=0;q<this_size/2;q++) cout<<recommend[i][q].first<<":"<<recommend[i][q].second<<" ";
-                //cout<<endl;
+                cout<<this_size<<"--> ";
+                for(uint32_t q=0;q<this_size/2;q++) cout<<recommend[i][q].first<<":"<<recommend[i][q].second<<" ";
+                cout<<endl;
             }
         }
         cout<<val2<<endl;
+    }
+}
+
+void broadCastInput(vector<vector<uint32_t>>& graph,uint32_t num_nodes,uint32_t rank)
+{
+    uint32_t list_size;
+    for(uint32_t i=0;i<num_nodes;i++)
+    {
+        list_size = graph[i].size();
+        MPI_Bcast(&list_size,1,MPI_INT,0,MPI_COMM_WORLD);
+
+        if(list_size>0 && rank==0)
+        {
+            MPI_Bcast(&graph[i][0],list_size,MPI_INT,0,MPI_COMM_WORLD);
+        }
+        else if(list_size>0)
+        {
+            graph[i].resize(list_size);
+            MPI_Bcast(&graph[i][0],list_size,MPI_INT,0,MPI_COMM_WORLD);
+        }
     }
 }
 
@@ -162,7 +182,6 @@ int main(int argc, char* argv[]){
 
     vector<vector<uint32_t>> graph(num_nodes);
     vector<vector<pair<uint32_t,uint32_t>>> recommend(num_nodes);
-    constructGraph(graph,num_nodes,graph_file);
     
     //Only one randomizer object should be used per MPI rank, and all should have same seed
     Randomizer random_generator(seed, num_nodes, restart_prob);
@@ -178,6 +197,9 @@ int main(int argc, char* argv[]){
 
     rank = rank_temp;
     size = size_temp;
+
+    if(rank==0) constructGraph(graph,num_nodes,graph_file);
+    broadCastInput(graph,num_nodes,rank);
 
     fillRecommendations(recommend,graph,num_nodes,num_walks,num_steps,num_rec,rank,size,random_generator);
 
