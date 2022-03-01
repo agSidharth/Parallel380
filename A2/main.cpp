@@ -14,31 +14,40 @@ struct myComp
     }
 };
 
-void constructGraph(vector<vector<uint32_t>>& graph,uint32_t num_nodes,string& graph_file)
+void constructGraph(vector<vector<uint32_t>>& graph,uint32_t num_nodes,string& graph_file,uint32_t num_edges)
 {
     ifstream fin(graph_file,ios::in | ios::binary);
     uint32_t node1,node2;
 
-    while(!fin.eof())
+    int this_edge = 0;
+    while(this_edge<num_edges)
     {
         fin.read((char*)&node1,sizeof(node1));
         fin.read((char*)&node2,sizeof(node2));
         graph[__builtin_bswap32(node1)].push_back(__builtin_bswap32(node2));
+        this_edge++;
     }
-    
     fin.close();   
 }
 
 
-void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector<uint32_t>>& graph,uint32_t num_rec)
+void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector<uint32_t>>& graph,uint32_t num_rec,int num_nodes,uint32_t rank,uint32_t size)
 {
-    ofstream file("output.dat",ios::out | ios::binary);
+    fstream file("output.dat",ios::in | ios::out | ios::binary);
 
-    for(uint32_t i=0;i<recommend.size();i++)
+    int offset = (2*num_rec+1)*(num_nodes/size)*rank*4;
+    file.seekg(offset,ios::beg);
+
+    uint32_t start_node = (num_nodes/size)*rank;
+    uint32_t final_node = (num_nodes/size)*(rank+1);
+    if(rank==size-1) final_node = num_nodes;
+
+    int print_rank = -1;
+    for(uint32_t i=start_node;i<final_node;i++)
     {
         uint32_t temp = __builtin_bswap32(graph[i].size());
         file.write((char *)&temp,sizeof(temp));
-        cout<<i<<" "<<graph[i].size()<<",";
+        if(rank==print_rank)cout<<i<<" "<<graph[i].size()<<",";
 
         for(uint32_t j=0;j<num_rec;j++)
         {
@@ -46,30 +55,31 @@ void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector
             {
                 temp = __builtin_bswap32(recommend[i][j].first);
                 file.write((char *)&temp,sizeof(temp));
-                cout<<recommend[i][j].first<<" ";
+                if(rank==print_rank)cout<<recommend[i][j].first<<" ";
 
                 temp = __builtin_bswap32(recommend[i][j].second);
                 file.write((char *)&temp,sizeof(temp));
-                cout<<recommend[i][j].second<<",";
+                if(rank==print_rank)cout<<recommend[i][j].second<<",";
             }
             else
             {
-                file.write((char *)&("NULL"),sizeof("NULL"));
-                file.write((char *)&("NULL"),sizeof("NULL"));  
-                cout<<"NULL NULL,";  
+                file.write((char *)&("NULLNULL"),8);
+                if(rank==print_rank)cout<<"NULL NULL,";  
             }
         }
-        cout<<"\n";
+        if(rank==print_rank)cout<<"\n";
     }
     file.close();
 }
 
 void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector<uint32_t>>& graph,uint32_t num_nodes,uint32_t num_walks,uint32_t num_steps,uint32_t num_rec,uint32_t rank,uint32_t size,Randomizer r)
 {
-    for(uint32_t i=0;i<num_nodes;i++)
-    {
-        if(i%size!=rank) continue;
+    uint32_t start_node = (num_nodes/size)*rank;
+    uint32_t final_node = (num_nodes/size)*(rank+1);
+    if(rank==size-1) final_node = num_nodes;
 
+    for(uint32_t i=start_node;i<final_node;i++)
+    {
         unordered_set<uint32_t> firstN;
         firstN.insert(i);
 
@@ -89,13 +99,12 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
                     if(graph[curr].size()==0) curr = start;
                     else
                     {
-                        uint32_t chance = r.get_random_value(i);
+                        int chance = r.get_random_value(i);
                         if(chance<0) curr = start;
                         else curr = graph[curr][chance%(graph[curr].size())]; 
                     }
                     scores[curr]++;
-
-                    if(i==0 && j==5 && k==0) cout<<curr<<" ";
+                    //if(i==0 && j==5 && k==0) cout<<curr<<" ";
                 }
             }
         }
@@ -122,7 +131,7 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
         firstN.clear();
         scores.clear();
     }
-
+    /*
     uint32_t this_size = 0;
     if(rank!=0)
     {   
@@ -158,8 +167,10 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
         }
         //cout<<val2<<endl;
     }
+    */
 }
 
+/*
 void broadCastInput(vector<vector<uint32_t>>& graph,uint32_t num_nodes,uint32_t rank)
 {
     uint32_t list_size;
@@ -179,6 +190,7 @@ void broadCastInput(vector<vector<uint32_t>>& graph,uint32_t num_nodes,uint32_t 
         }
     }
 }
+*/
 
 int main(int argc, char* argv[]){
 
@@ -196,11 +208,14 @@ int main(int argc, char* argv[]){
 
     vector<vector<uint32_t>> graph(num_nodes);
     vector<vector<pair<uint32_t,uint32_t>>> recommend(num_nodes);
-    
+
     //Only one randomizer object should be used per MPI rank, and all should have same seed
     Randomizer random_generator(seed, num_nodes, restart_prob);
     uint32_t rank, size;
     int rank_temp,size_temp;
+
+    ofstream file2("output.dat",ios::out | ios::binary| ios::trunc);
+    file2.close();
 
     //Starting MPI pipeline
     MPI_Init(NULL, NULL);
@@ -214,12 +229,12 @@ int main(int argc, char* argv[]){
 
     //cout<<rank<<": Started\n";
     
-    constructGraph(graph,num_nodes,graph_file); 
+    constructGraph(graph,num_nodes,graph_file,num_edges);
     //cout<<rank<<": Graph constructed\n";
         
     fillRecommendations(recommend,graph,num_nodes,num_walks,num_steps,num_rec,rank,size,random_generator);
     
-    if(rank==0) fillOutput(recommend,graph,num_rec);
+    fillOutput(recommend,graph,num_rec,num_nodes,rank,size);
 
     //if(rank==0) cout<<"Output filled\n";
     
