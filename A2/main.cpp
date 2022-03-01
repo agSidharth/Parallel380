@@ -38,26 +38,34 @@ void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector
     {
         uint32_t temp = __builtin_bswap32(graph[i].size());
         file.write((char *)&temp,sizeof(temp));
+        cout<<i<<" "<<graph[i].size()<<",";
 
-        for(uint32_t j=0;j<recommend[i].size();j++)
+        for(uint32_t j=0;j<num_rec;j++)
         {
-            temp = __builtin_bswap32(recommend[i][j].first);
-            file.write((char *)&temp,sizeof(temp));
+            if(j<recommend[i].size())
+            {
+                temp = __builtin_bswap32(recommend[i][j].first);
+                file.write((char *)&temp,sizeof(temp));
+                cout<<recommend[i][j].first<<" ";
 
-            temp = __builtin_bswap32(recommend[i][j].second);
-            file.write((char *)&temp,sizeof(temp));
+                temp = __builtin_bswap32(recommend[i][j].second);
+                file.write((char *)&temp,sizeof(temp));
+                cout<<recommend[i][j].second<<",";
+            }
+            else
+            {
+                file.write((char *)&("NULL"),sizeof("NULL"));
+                file.write((char *)&("NULL"),sizeof("NULL"));  
+                cout<<"NULL NULL,";  
+            }
         }
-        if(recommend[i].size()<num_rec)
-        {
-            file.write((char *)&("NULL"),sizeof("NULL")); 
-        }
+        cout<<"\n";
     }
     file.close();
 }
 
 void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector<uint32_t>>& graph,uint32_t num_nodes,uint32_t num_walks,uint32_t num_steps,uint32_t num_rec,uint32_t rank,uint32_t size,Randomizer r)
 {
-    int val1 = 0;
     for(uint32_t i=0;i<num_nodes;i++)
     {
         if(i%size!=rank) continue;
@@ -72,7 +80,7 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
         {
             uint32_t start = graph[i][j];
             firstN.insert(start);
-
+            
             for(uint32_t k=0;k<num_walks;k++)
             {
                 uint32_t curr = start;                
@@ -85,8 +93,10 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
                         if(chance<0) curr = start;
                         else curr = graph[curr][chance%(graph[curr].size())]; 
                     }
+                    scores[curr]++;
+
+                    if(i==0 && j==5 && k==0) cout<<curr<<" ";
                 }
-                scores[curr]++;
             }
         }
         
@@ -96,7 +106,7 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
             uint32_t node = (*it).first;
             uint32_t thisScore = (*it).second;
             
-            pq.push({thisScore,node});
+            if(firstN.find(node)==firstN.end()) pq.push({thisScore,node});
         }
         
         while(pq.size()>0)
@@ -104,23 +114,16 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
             pair<uint32_t,uint32_t> tempP = pq.top();
             pq.pop();
 
-            if(firstN.find(tempP.second)==firstN.end())
-            {
-                recommend[i].push_back({tempP.second,tempP.first});
-                //cout<<tempP.first<<" ";
-            }
+            recommend[i].push_back({tempP.second,tempP.first});
+
             if(recommend[i].size()==num_rec) break;
         }
     
         firstN.clear();
         scores.clear();
-
-        if(recommend[i].size()>0)val1++;
     }
 
     uint32_t this_size = 0;
-    if(this_size==0)  cout<<rank<<":"<<val1<<endl;
-    
     if(rank!=0)
     {   
         for(uint32_t i=rank;i<num_nodes;i=i+size)
@@ -133,10 +136,10 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
     }
     else
     {
-        int val2 = 0;
+        //int val2 = 0;
         for(uint32_t i=0;i<num_nodes;i++)
         {
-            if(recommend[i].size()>0) val2++;
+            //if(recommend[i].size()>0) val2++;
             if(i%size==0) continue;
             this_size = 0;
 
@@ -144,16 +147,16 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
 
             if(this_size>0)
             {
-                val2++;
+                //val2++;
                 recommend[i].resize(this_size/2);
                 MPI_Recv(&recommend[i][0].first,this_size,MPI_INT,i%size,(int)i,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
-                cout<<this_size<<"--> ";
-                for(uint32_t q=0;q<this_size/2;q++) cout<<recommend[i][q].first<<":"<<recommend[i][q].second<<" ";
-                cout<<endl;
+                //cout<<this_size<<"--> ";
+                //for(uint32_t q=0;q<this_size/2;q++) cout<<recommend[i][q].first<<":"<<recommend[i][q].second<<" ";
+                //cout<<endl;
             }
         }
-        cout<<val2<<endl;
+        //cout<<val2<<endl;
     }
 }
 
@@ -209,26 +212,21 @@ int main(int argc, char* argv[]){
     rank = rank_temp;
     size = size_temp;
 
-    cout<<rank<<": Started\n";
+    //cout<<rank<<": Started\n";
     
-    if(rank==0) {constructGraph(graph,num_nodes,graph_file); cout<<rank<<": Graph constructed\n";}
-
-    broadCastInput(graph,num_nodes,rank);
-
-    if(size>0)cout<<rank<<": Graph brodcasted\n";
-    
+    constructGraph(graph,num_nodes,graph_file); 
+    //cout<<rank<<": Graph constructed\n";
+        
     fillRecommendations(recommend,graph,num_nodes,num_walks,num_steps,num_rec,rank,size,random_generator);
-
-    cout<<rank<<": Recommendations constructed\n";
-
+    
     if(rank==0) fillOutput(recommend,graph,num_rec);
 
-    if(rank==0) cout<<"Output filled\n";
+    //if(rank==0) cout<<"Output filled\n";
     
     MPI_Finalize();
 
     auto stop = chrono::high_resolution_clock::now();
     auto duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
  
-    if(rank==0) cout << "Time taken "<< duration.count() << " milliseconds" << endl;
+    //if(rank==0) cout << "Time taken "<< duration.count() << " milliseconds" << endl;
 }
