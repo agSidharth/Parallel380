@@ -34,19 +34,21 @@ void constructGraph(vector<vector<uint32_t>>& graph,uint32_t num_nodes,string& g
 void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector<uint32_t>>& graph,uint32_t num_rec,int num_nodes,uint32_t rank,uint32_t size)
 {
     fstream file("output.dat",ios::in | ios::out | ios::binary);
+    int offset,print_rank;
+    print_rank = -1;
 
-    int offset = (2*num_rec+1)*(num_nodes/size)*rank*4;
-    file.seekg(offset,ios::beg);
+    uint32_t start_node = rank;//(num_nodes/size)*rank;
+    uint32_t final_node = num_nodes;//(num_nodes/size)*(rank+1);
+    //if(rank==size-1) final_node = num_nodes;
 
-    uint32_t start_node = (num_nodes/size)*rank;
-    uint32_t final_node = (num_nodes/size)*(rank+1);
-    if(rank==size-1) final_node = num_nodes;
-
-    int print_rank = -1;
-    for(uint32_t i=start_node;i<final_node;i++)
+    for(uint32_t i=start_node;i<final_node;i = i + size)
     {
+        offset = (2*num_rec+1)*i*4;
+        file.seekg(offset,ios::beg);
+
         uint32_t temp = __builtin_bswap32(graph[i].size());
         file.write((char *)&temp,sizeof(temp));
+
         if(rank==print_rank)cout<<i<<" "<<graph[i].size()<<",";
 
         for(uint32_t j=0;j<num_rec;j++)
@@ -55,15 +57,18 @@ void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector
             {
                 temp = __builtin_bswap32(recommend[i][j].first);
                 file.write((char *)&temp,sizeof(temp));
+
                 if(rank==print_rank)cout<<recommend[i][j].first<<" ";
 
                 temp = __builtin_bswap32(recommend[i][j].second);
                 file.write((char *)&temp,sizeof(temp));
+
                 if(rank==print_rank)cout<<recommend[i][j].second<<",";
             }
             else
             {
                 file.write((char *)&("NULLNULL"),8);
+
                 if(rank==print_rank)cout<<"NULL NULL,";  
             }
         }
@@ -74,11 +79,11 @@ void fillOutput(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector
 
 void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vector<vector<uint32_t>>& graph,uint32_t num_nodes,uint32_t num_walks,uint32_t num_steps,uint32_t num_rec,uint32_t rank,uint32_t size,Randomizer r)
 {
-    uint32_t start_node = (num_nodes/size)*rank;
-    uint32_t final_node = (num_nodes/size)*(rank+1);
-    if(rank==size-1) final_node = num_nodes;
+    uint32_t start_node = rank;//(num_nodes/size)*rank;
+    uint32_t final_node = num_nodes;//(num_nodes/size)*(rank+1);
+    //if(rank==size-1) final_node = num_nodes;
 
-    for(uint32_t i=start_node;i<final_node;i++)
+    for(uint32_t i=start_node;i<final_node;i = i + size)
     {
         unordered_set<uint32_t> firstN;
         firstN.insert(i);
