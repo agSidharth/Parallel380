@@ -249,5 +249,5 @@ int main(int argc, char* argv[]){
     auto stop = chrono::high_resolution_clock::now();
     auto duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
  
-    if(rank==0) cout << "Time taken "<< duration.count() << " milliseconds" << endl;
+    if(rank==0) cout<<num_nodes<<":"<<num_edges<<":"<<size << ": Time taken "<< duration.count() << " milliseconds" << endl;
 }
