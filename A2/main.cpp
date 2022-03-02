@@ -93,7 +93,8 @@ void fillRecommendations(vector<vector<pair<uint32_t,uint32_t>>>& recommend,vect
             
             for(uint32_t k=0;k<num_walks;k++)
             {
-                uint32_t curr = start;                
+                uint32_t curr = start;        
+                if(graph[start].size()==0) continue;         
                 for(uint32_t step=0;step<num_steps;step++)
                 {
                     if(graph[curr].size()==0) curr = start;
@@ -243,5 +244,5 @@ int main(int argc, char* argv[]){
     auto stop = chrono::high_resolution_clock::now();
     auto duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
  
-    //if(rank==0) cout << "Time taken "<< duration.count() << " milliseconds" << endl;
+    if(rank==0) cout << "Time taken "<< duration.count() << " milliseconds" << endl;
 }
